@@ -22,36 +22,6 @@ export const useTraversal = () => {
     return adjList;
   }, [edges]);
 
-  const startTraversal = useCallback(() => {
-    if (!rootNode) return;
-    
-    resetTraversal();
-    
-    if (algorithm === 'DFS') {
-      updateTraversalState({
-        callStack: [{ node: rootNode, parent: null, children: [], childIndex: 0, phase: 'start' }],
-        isRunning: true,
-        phase: 'visiting'
-      });
-    } else {
-      updateTraversalState({
-        queue: [{ node: rootNode, parent: null }],
-        isRunning: true,
-        phase: 'visiting'
-      });
-    }
-  }, [rootNode, algorithm, resetTraversal, updateTraversalState]);
-
-  const stepTraversal = useCallback(() => {
-    if (!traversalState.isRunning || traversalState.isComplete) return;
-
-    if (algorithm === 'DFS') {
-      stepDFS();
-    } else {
-      stepBFS();
-    }
-  }, [algorithm, traversalState, stepDFS, stepBFS]);
-
   const stepDFS = useCallback(() => {
     const { callStack, visited } = traversalState;
     const adjList = buildAdjacencyList();
@@ -182,6 +152,36 @@ export const useTraversal = () => {
       phase: 'visiting'
     });
   }, [traversalState, buildAdjacencyList, updateTraversalState, edges]);
+
+  const stepTraversal = useCallback(() => {
+    if (!traversalState.isRunning || traversalState.isComplete) return;
+
+    if (algorithm === 'DFS') {
+      stepDFS();
+    } else {
+      stepBFS();
+    }
+  }, [algorithm, traversalState, stepDFS, stepBFS]);
+
+  const startTraversal = useCallback(() => {
+    if (!rootNode) return;
+    
+    resetTraversal();
+    
+    if (algorithm === 'DFS') {
+      updateTraversalState({
+        callStack: [{ node: rootNode, parent: null, children: [], childIndex: 0, phase: 'start' }],
+        isRunning: true,
+        phase: 'visiting'
+      });
+    } else {
+      updateTraversalState({
+        queue: [{ node: rootNode, parent: null }],
+        isRunning: true,
+        phase: 'visiting'
+      });
+    }
+  }, [rootNode, algorithm, resetTraversal, updateTraversalState]);
 
   const intervalRef = useRef(null);
 
