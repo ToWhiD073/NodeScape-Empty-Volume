@@ -50,10 +50,10 @@ export const useTraversal = () => {
     } else {
       stepBFS();
     }
-  }, [algorithm, traversalState]);
+  }, [algorithm, traversalState, stepDFS, stepBFS]);
 
   const stepDFS = useCallback(() => {
-    const { callStack, visited, phase } = traversalState;
+    const { callStack, visited } = traversalState;
     const adjList = buildAdjacencyList();
     
     if (callStack.length === 0) {
