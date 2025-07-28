@@ -1,78 +1,111 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Spin, Alert } from 'antd';
-import { useGraphStore } from '../store/graphStore';
+import React, { useCallback, useMemo } from "react";
+import { Card } from "antd";
+import ReactFlow, {
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+} from "reactflow";
+import "reactflow/dist/style.css";
+import { useGraphStore } from "../store/graphStore";
+
+const nodeTypes = {};
 
 export const GraphVisualizer = () => {
-  const { nodes, edges, traversalState } = useGraphStore();
-  const [graphImage, setGraphImage] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const {
+    nodes: storeNodes,
+    edges: storeEdges,
+    traversalState,
+  } = useGraphStore();
 
-  const generateGraph = async () => {
-    if (edges.length === 0) {
-      setGraphImage(null);
-      return;
-    }
+  const initialNodes = useMemo(() => {
+    return storeNodes.map((node) => ({
+      id: node.id,
+      position: node.position,
+      data: { label: node.data.label },
+      style: {
+        background: getNodeColor(node.id, traversalState),
+        color: "#fff",
+        border: "2px solid #222",
+        borderRadius: "50%",
+        width: 50,
+        height: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "14px",
+        fontWeight: "bold",
+        transition: "all 0.3s ease",
+      },
+      type: "default",
+    }));
+  }, [storeNodes, traversalState]);
 
-    setLoading(true);
-    setError(null);
+  const initialEdges = useMemo(() => {
+    return storeEdges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      label: edge.label,
+      type: 'straight',
+      style: {
+        stroke: getEdgeColor(edge, traversalState),
+        strokeWidth: 2,
+        transition: "all 0.3s ease",
+      },
+      labelStyle: {
+        fontSize: 12,
+        fontWeight: "bold",
+        background: "#fff",
+        padding: "2px 4px",
+        borderRadius: "4px",
+      },
+      animated: isEdgeAnimated(edge, traversalState),
+    }));
+  }, [storeEdges, traversalState]);
 
-    try {
-      // Prepare data for Python backend
-      const graphData = {
-        edges: edges.map(edge => [edge.source, edge.target]),
-        visited_nodes: Array.from(traversalState.visited),
-        current_node: traversalState.current,
-        current_edge: traversalState.currentEdge
-      };
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-      const response = await fetch('http://localhost:5000/generate_graph', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(graphData)
-      });
+  const onConnect = useCallback(
+    (params) => setEdges((eds) => addEdge(params, eds)),
+    [setEdges]
+  );
 
-      const result = await response.json();
+  // Update nodes and edges when store changes
+  React.useEffect(() => {
+    setNodes(initialNodes);
+  }, [initialNodes, setNodes]);
 
-      if (result.success) {
-        setGraphImage(result.image);
-      } else {
-        setError(result.error || 'Failed to generate graph');
-      }
-    } catch (err) {
-      setError('Failed to connect to graph service. Make sure Python backend is running.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  React.useEffect(() => {
+    setEdges(initialEdges);
+  }, [initialEdges, setEdges]);
 
-  useEffect(() => {
-    generateGraph();
-  }, [edges, traversalState.visited, traversalState.current, traversalState.currentEdge]);
-
-  if (nodes.length === 0) {
+  if (storeNodes.length === 0) {
     return (
-      <Card 
-        title="Graph Visualization" 
-        style={{ 
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-          border: '1px solid #e8e8e8'
+      <Card
+        title="Graph Visualization"
+        style={{
+          borderRadius: "12px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+          border: "1px solid #e8e8e8",
         }}
       >
-        <div style={{ 
-          height: 400, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          background: '#f8fafc',
-          borderRadius: '8px',
-          color: '#64748b',
-          fontSize: '16px',
-          fontWeight: '500'
-        }}>
+        <div
+          style={{
+            height: 400,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f8fafc",
+            borderRadius: "8px",
+            color: "#64748b",
+            fontSize: "16px",
+            fontWeight: "500",
+          }}
+        >
           Please input a graph to visualize
         </div>
       </Card>
@@ -80,65 +113,69 @@ export const GraphVisualizer = () => {
   }
 
   return (
-    <Card 
-      title="Graph Visualization (Python Generated)" 
-      style={{ 
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e8e8e8'
+    <Card
+      title="Interactive Graph Visualization"
+      style={{
+        borderRadius: "12px",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+        border: "1px solid #e8e8e8",
       }}
     >
-      <div style={{ 
-        minHeight: 400,
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: '#f8fafc',
-        borderRadius: '8px',
-        padding: '20px'
-      }}>
-        {loading && (
-          <div style={{ textAlign: 'center' }}>
-            <Spin size="large" />
-            <div style={{ marginTop: '16px', color: '#64748b' }}>
-              Generating beautiful graph...
-            </div>
-          </div>
-        )}
-        
-        {error && (
-          <Alert
-            message="Graph Generation Error"
-            description={
-              <div>
-                <p>{error}</p>
-                <p style={{ marginTop: '8px', fontSize: '12px' }}>
-                  To start the Python backend:
-                  <br />
-                  <code>pip install -r requirements.txt</code>
-                  <br />
-                  <code>python graph_generator.py</code>
-                </p>
-              </div>
-            }
-            type="error"
-            showIcon
+      <div style={{ height: 500, background: "#f8fafc", borderRadius: "8px" }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          nodeTypes={nodeTypes}
+          fitView
+          attributionPosition="bottom-left"
+        >
+          <Background color="#aaa" gap={16} />
+          <Controls />
+          <MiniMap
+            nodeColor={(node) => getNodeColor(node.id, traversalState)}
+            nodeStrokeWidth={3}
+            zoomable
+            pannable
           />
-        )}
-        
-        {graphImage && !loading && !error && (
-          <img 
-            src={graphImage} 
-            alt="Graph Visualization" 
-            style={{ 
-              maxWidth: '100%', 
-              maxHeight: '500px',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-            }} 
-          />
-        )}
+        </ReactFlow>
       </div>
     </Card>
   );
 };
+
+function getNodeColor(nodeId, traversalState) {
+  if (traversalState.current === nodeId) {
+    return "#ff6b6b"; // Current node - red
+  }
+  if (traversalState.visited.has(nodeId)) {
+    return "#51cf66"; // Visited node - green
+  }
+  return "#339af0"; // Unvisited node - blue
+}
+
+function getEdgeColor(edge, traversalState) {
+  // Current edge being traversed
+  if (traversalState.currentEdge && traversalState.currentEdge === edge.id) {
+    return "#ff6b6b"; // Current edge - red
+  }
+  
+  // Edge between visited nodes (traversed edge)
+  if (traversalState.visited.has(edge.source) && traversalState.visited.has(edge.target)) {
+    return "#51cf66"; // Traversed edge - green
+  }
+  
+  // Edge connected to current node
+  if (traversalState.current && 
+      (edge.source === traversalState.current || edge.target === traversalState.current)) {
+    return "#ffd43b"; // Connected to current - yellow
+  }
+  
+  return "#b1b1b7"; // Default edge - gray
+}
+
+function isEdgeAnimated(edge, traversalState) {
+  return traversalState.currentEdge && traversalState.currentEdge === edge.id;
+}
