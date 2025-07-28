@@ -1,73 +1,144 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Card } from 'antd';
-import ReactFlow, { Background, Controls } from 'reactflow';
-import 'reactflow/dist/style.css';
+import * as d3 from 'd3';
 import { useGraphStore } from '../store/graphStore';
 
 export const GraphVisualizer = () => {
   const { nodes, edges, traversalState } = useGraphStore();
+  const svgRef = useRef();
 
-  const styledNodes = useMemo(() => {
-    return nodes.map(node => {
-      let background, borderColor, boxShadow;
-      let color = 'white';
-      
-      if (traversalState.visited.has(node.id)) {
-        background = 'linear-gradient(135deg, #52c41a, #389e0d)';
-        borderColor = '#389e0d';
-        boxShadow = '0 4px 12px rgba(82, 196, 26, 0.4)';
-      } else if (traversalState.current === node.id) {
-        background = 'linear-gradient(135deg, #1890ff, #096dd9)';
-        borderColor = '#096dd9';
-        boxShadow = '0 4px 12px rgba(24, 144, 255, 0.4)';
-      } else {
-        background = 'linear-gradient(135deg, #ffffff, #f0f0f0)';
-        borderColor = '#d9d9d9';
-        boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-        color = '#333';
-      }
-      
-      return {
-        ...node,
-        style: {
-          background,
-          color,
-          border: `3px solid ${borderColor}`,
-          borderRadius: '50%',
-          width: 35,
-          height: 35,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '12px',
-          fontWeight: '600',
-          boxShadow,
-          transition: 'all 0.3s ease'
-        }
-      };
-    });
-  }, [nodes, traversalState]);
+  useEffect(() => {
+    if (nodes.length === 0) return;
 
-  const styledEdges = useMemo(() => {
-    return edges.map(edge => ({
-      ...edge,
-      type: 'straight',
-      style: {
-        stroke: traversalState.currentEdge === edge.id ? '#ff4d4f' : '#8c8c8c',
-        strokeWidth: traversalState.currentEdge === edge.id ? 4 : 2,
-        strokeDasharray: traversalState.currentEdge === edge.id ? '0' : '0',
-        filter: traversalState.currentEdge === edge.id ? 'drop-shadow(0 2px 4px rgba(255, 77, 79, 0.3))' : 'none'
-      },
-      labelStyle: {
-        fontSize: '11px',
-        fontWeight: '600',
-        fill: '#666',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        padding: '2px 6px',
-        borderRadius: '4px'
-      }
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    const width = 500;
+    const height = 400;
+    const margin = 40;
+
+    // Create graph data
+    const graphNodes = nodes.map(node => ({
+      id: node.id,
+      x: node.position.x,
+      y: node.position.y
     }));
-  }, [edges, traversalState.currentEdge]);
+
+    const graphEdges = edges.map(edge => ({
+      source: edge.source,
+      target: edge.target,
+      id: edge.id
+    }));
+
+    // Create container
+    const container = svg
+      .attr('width', width)
+      .attr('height', height)
+      .style('background', 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)')
+      .style('border-radius', '12px');
+
+    // Add glow filter
+    const defs = container.append('defs');
+    const filter = defs.append('filter')
+      .attr('id', 'glow');
+    filter.append('feGaussianBlur')
+      .attr('stdDeviation', '3')
+      .attr('result', 'coloredBlur');
+    const feMerge = filter.append('feMerge');
+    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // Draw edges
+    const edgeGroup = container.append('g').attr('class', 'edges');
+    
+    edgeGroup.selectAll('line')
+      .data(graphEdges)
+      .enter()
+      .append('line')
+      .attr('x1', d => {
+        const sourceNode = graphNodes.find(n => n.id === d.source);
+        return sourceNode ? sourceNode.x : 0;
+      })
+      .attr('y1', d => {
+        const sourceNode = graphNodes.find(n => n.id === d.source);
+        return sourceNode ? sourceNode.y : 0;
+      })
+      .attr('x2', d => {
+        const targetNode = graphNodes.find(n => n.id === d.target);
+        return targetNode ? targetNode.x : 0;
+      })
+      .attr('y2', d => {
+        const targetNode = graphNodes.find(n => n.id === d.target);
+        return targetNode ? targetNode.y : 0;
+      })
+      .attr('stroke', d => traversalState.currentEdge === d.id ? '#ff4d4f' : '#ffffff')
+      .attr('stroke-width', d => traversalState.currentEdge === d.id ? 4 : 2)
+      .attr('opacity', 0.8)
+      .style('filter', d => traversalState.currentEdge === d.id ? 'url(#glow)' : 'none');
+
+    // Draw nodes
+    const nodeGroup = container.append('g').attr('class', 'nodes');
+    
+    const nodeElements = nodeGroup.selectAll('g')
+      .data(graphNodes)
+      .enter()
+      .append('g')
+      .attr('transform', d => `translate(${d.x}, ${d.y})`);
+
+    // Add node circles
+    nodeElements.append('circle')
+      .attr('r', 20)
+      .attr('fill', d => {
+        if (traversalState.visited.has(d.id)) {
+          return 'url(#visitedGradient)';
+        } else if (traversalState.current === d.id) {
+          return 'url(#currentGradient)';
+        }
+        return 'url(#defaultGradient)';
+      })
+      .attr('stroke', d => {
+        if (traversalState.visited.has(d.id)) return '#389e0d';
+        if (traversalState.current === d.id) return '#096dd9';
+        return '#d9d9d9';
+      })
+      .attr('stroke-width', 3)
+      .style('filter', d => {
+        if (traversalState.visited.has(d.id) || traversalState.current === d.id) {
+          return 'url(#glow)';
+        }
+        return 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))';
+      });
+
+    // Add node labels
+    nodeElements.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '0.35em')
+      .attr('fill', 'white')
+      .attr('font-size', '14px')
+      .attr('font-weight', '600')
+      .text(d => d.id);
+
+    // Define gradients
+    const gradients = defs.selectAll('linearGradient')
+      .data([
+        { id: 'visitedGradient', colors: ['#52c41a', '#389e0d'] },
+        { id: 'currentGradient', colors: ['#1890ff', '#096dd9'] },
+        { id: 'defaultGradient', colors: ['#ffffff', '#f0f0f0'] }
+      ])
+      .enter()
+      .append('linearGradient')
+      .attr('id', d => d.id)
+      .attr('x1', '0%').attr('y1', '0%')
+      .attr('x2', '100%').attr('y2', '100%');
+
+    gradients.selectAll('stop')
+      .data(d => d.colors.map((color, i) => ({ color, offset: i * 100 + '%' })))
+      .enter()
+      .append('stop')
+      .attr('offset', d => d.offset)
+      .attr('stop-color', d => d.color);
+
+  }, [nodes, edges, traversalState]);
 
   if (nodes.length === 0) {
     return (
@@ -83,10 +154,11 @@ export const GraphVisualizer = () => {
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #f5f7fa, #c3cfe2)',
-          borderRadius: '8px',
-          color: '#666',
-          fontSize: '16px'
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: '12px',
+          color: 'white',
+          fontSize: '18px',
+          fontWeight: '500'
         }}>
           Please input a graph to visualize
         </div>
@@ -103,33 +175,11 @@ export const GraphVisualizer = () => {
       }}
     >
       <div style={{ 
-        height: 400, 
-        borderRadius: '8px',
-        overflow: 'hidden',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+        display: 'flex', 
+        justifyContent: 'center',
+        padding: '10px'
       }}>
-        <ReactFlow
-          nodes={styledNodes}
-          edges={styledEdges}
-          fitView
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-        >
-          <Background 
-            color="rgba(255, 255, 255, 0.2)"
-            gap={20}
-            size={1}
-          />
-          <Controls 
-            style={{
-              background: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '8px',
-              border: 'none',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-            }}
-          />
-        </ReactFlow>
+        <svg ref={svgRef}></svg>
       </div>
     </Card>
   );

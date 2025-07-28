@@ -27,7 +27,7 @@ export const useGraphStore = create((set, get) => ({
     // Force-directed layout
     const nodeArray = Array.from(nodeSet);
     const nodePositions = {};
-    const minDistance = 80;
+    const minDistance = 120;
     const width = 500;
     const height = 350;
     
@@ -70,7 +70,7 @@ export const useGraphStore = create((set, get) => ({
         const dx = nodePositions[to].x - nodePositions[from].x;
         const dy = nodePositions[to].y - nodePositions[from].y;
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-        const idealDistance = 120;
+        const idealDistance = 150;
         const force = (distance - idealDistance) / distance * 0.1;
         
         forces[from].x += dx * force;
