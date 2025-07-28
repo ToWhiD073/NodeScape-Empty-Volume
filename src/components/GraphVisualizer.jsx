@@ -8,39 +8,46 @@ export const GraphVisualizer = () => {
   const { nodes, edges, traversalState } = useGraphStore();
 
   const styledNodes = useMemo(() => {
-    return nodes.map(node => ({
-      ...node,
-      style: {
-        backgroundColor: traversalState.visited.has(node.id) 
-          ? '#52c41a' 
-          : traversalState.current === node.id 
-          ? '#1890ff' 
-          : '#f0f0f0',
-        color: traversalState.visited.has(node.id) || traversalState.current === node.id 
-          ? 'white' 
-          : 'black',
-        border: '2px solid #d9d9d9',
-        borderRadius: '50%',
-        width: 60,
-        height: 60,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '14px',
-        fontWeight: 'bold'
+    return nodes.map(node => {
+      let backgroundColor = '#f0f0f0';
+      let color = 'black';
+      
+      if (traversalState.visited.has(node.id)) {
+        backgroundColor = '#52c41a'; // Green for visited
+        color = 'white';
+      } else if (traversalState.current === node.id) {
+        backgroundColor = '#1890ff'; // Blue for current
+        color = 'white';
       }
-    }));
+      
+      return {
+        ...node,
+        style: {
+          backgroundColor,
+          color,
+          border: '2px solid #d9d9d9',
+          borderRadius: '50%',
+          width: 40,
+          height: 40,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '12px',
+          fontWeight: 'bold'
+        }
+      };
+    });
   }, [nodes, traversalState]);
 
   const styledEdges = useMemo(() => {
     return edges.map(edge => ({
       ...edge,
       style: {
-        stroke: '#d9d9d9',
-        strokeWidth: 2
+        stroke: traversalState.currentEdge === edge.id ? '#ff4d4f' : '#d9d9d9',
+        strokeWidth: traversalState.currentEdge === edge.id ? 3 : 2
       }
     }));
-  }, [edges]);
+  }, [edges, traversalState.currentEdge]);
 
   if (nodes.length === 0) {
     return (

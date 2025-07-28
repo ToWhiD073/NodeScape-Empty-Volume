@@ -10,16 +10,18 @@ export const GraphInput = () => {
 
   const handleSubmit = () => {
     try {
-      const parsed = JSON.parse(inputValue);
-      if (!Array.isArray(parsed) || !parsed.every(edge => 
-        Array.isArray(edge) && edge.length === 2
-      )) {
-        throw new Error('Invalid format');
-      }
-      setEdges(parsed);
+      const lines = inputValue.trim().split('\n').filter(line => line.trim());
+      const edges = lines.map(line => {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length < 2) {
+          throw new Error(`Invalid line: ${line}`);
+        }
+        return [parts[0], parts[1], parts[2] || null];
+      });
+      setEdges(edges);
       message.success('Graph loaded successfully!');
     } catch (error) {
-      message.error('Invalid input format. Use: [["A", "B"], ["A", "C"]]');
+      message.error('Invalid input format. Each line should be: u v [w]');
     }
   };
 
@@ -27,7 +29,7 @@ export const GraphInput = () => {
     <Card title="Graph Input" style={{ marginBottom: 16 }}>
       <TextArea
         rows={4}
-        placeholder='Enter edges as JSON array: [["A", "B"], ["A", "C"], ["B", "D"]]'
+        placeholder='Enter edges (one per line):\nA B\nA C 5\nB D'
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         style={{ marginBottom: 12 }}

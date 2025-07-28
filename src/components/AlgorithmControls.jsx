@@ -11,10 +11,11 @@ export const AlgorithmControls = () => {
     traversalState, 
     resetTraversal 
   } = useGraphStore();
-  const { startTraversal, stepTraversal } = useTraversal();
+  const { startTraversal, stepTraversal, startAutoPlay, stopAutoPlay } = useTraversal();
 
   const canStart = rootNode && !traversalState.isRunning;
-  const canStep = traversalState.isRunning && !traversalState.isComplete;
+  const canStep = traversalState.isRunning && !traversalState.isComplete && !traversalState.isAutoPlaying;
+  const canAutoPlay = rootNode && !traversalState.isRunning;
 
   return (
     <Card title="Algorithm Controls" style={{ marginBottom: 16 }}>
@@ -41,6 +42,13 @@ export const AlgorithmControls = () => {
             disabled={!canStep}
           >
             Next Step
+          </Button>
+          <Button 
+            type="default"
+            onClick={traversalState.isAutoPlaying ? stopAutoPlay : startAutoPlay}
+            disabled={!canAutoPlay && !traversalState.isAutoPlaying}
+          >
+            {traversalState.isAutoPlaying ? 'Stop Auto' : 'Auto Play'}
           </Button>
           <Button onClick={resetTraversal}>
             Reset
