@@ -1,11 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card } from 'antd';
 import * as d3 from 'd3';
 import { useGraphStore } from '../store/graphStore';
 
 export const GraphVisualizer = () => {
-  const { nodes, edges, traversalState } = useGraphStore();
+  const { nodes, edges, traversalState, updateTraversalState } = useGraphStore();
   const svgRef = useRef();
+  const [simulation, setSimulation] = useState(null);
 
   useEffect(() => {
     if (nodes.length === 0) return;
@@ -13,15 +14,24 @@ export const GraphVisualizer = () => {
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const width = 500;
-    const height = 400;
-    const margin = 40;
+    const width = 600;
+    const height = 450;
 
-    // Create graph data
+    // Create clean white background
+    svg
+      .attr('width', width)
+      .attr('height', height)
+      .style('background', '#ffffff')
+      .style('border', '1px solid #e8e8e8')
+      .style('border-radius', '8px');
+
+    // Prepare data
     const graphNodes = nodes.map(node => ({
       id: node.id,
-      x: node.position.x,
-      y: node.position.y
+      x: node.position.x + 50,
+      y: node.position.y + 50,
+      fx: null,
+      fy: null
     }));
 
     const graphEdges = edges.map(edge => ({
@@ -30,113 +40,143 @@ export const GraphVisualizer = () => {
       id: edge.id
     }));
 
-    // Create container
-    const container = svg
-      .attr('width', width)
-      .attr('height', height)
-      .style('background', 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)')
-      .style('border-radius', '12px');
+    // Create force simulation
+    const sim = d3.forceSimulation(graphNodes)
+      .force('link', d3.forceLink(graphEdges).id(d => d.id).distance(100))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(35));
 
-    // Add glow filter
-    const defs = container.append('defs');
-    const filter = defs.append('filter')
-      .attr('id', 'glow');
-    filter.append('feGaussianBlur')
-      .attr('stdDeviation', '3')
-      .attr('result', 'coloredBlur');
-    const feMerge = filter.append('feMerge');
-    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
-    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+    setSimulation(sim);
 
-    // Draw edges
+    // Create container groups
+    const container = svg.append('g');
     const edgeGroup = container.append('g').attr('class', 'edges');
-    
-    edgeGroup.selectAll('line')
+    const nodeGroup = container.append('g').attr('class', 'nodes');
+
+    // Create edges
+    const edgeElements = edgeGroup.selectAll('line')
       .data(graphEdges)
       .enter()
       .append('line')
-      .attr('x1', d => {
-        const sourceNode = graphNodes.find(n => n.id === d.source);
-        return sourceNode ? sourceNode.x : 0;
-      })
-      .attr('y1', d => {
-        const sourceNode = graphNodes.find(n => n.id === d.source);
-        return sourceNode ? sourceNode.y : 0;
-      })
-      .attr('x2', d => {
-        const targetNode = graphNodes.find(n => n.id === d.target);
-        return targetNode ? targetNode.x : 0;
-      })
-      .attr('y2', d => {
-        const targetNode = graphNodes.find(n => n.id === d.target);
-        return targetNode ? targetNode.y : 0;
-      })
-      .attr('stroke', d => traversalState.currentEdge === d.id ? '#ff4d4f' : '#ffffff')
-      .attr('stroke-width', d => traversalState.currentEdge === d.id ? 4 : 2)
-      .attr('opacity', 0.8)
-      .style('filter', d => traversalState.currentEdge === d.id ? 'url(#glow)' : 'none');
+      .attr('stroke', '#d1d5db')
+      .attr('stroke-width', 2)
+      .style('transition', 'all 0.3s ease');
 
-    // Draw nodes
-    const nodeGroup = container.append('g').attr('class', 'nodes');
-    
+    // Create nodes
     const nodeElements = nodeGroup.selectAll('g')
       .data(graphNodes)
       .enter()
       .append('g')
-      .attr('transform', d => `translate(${d.x}, ${d.y})`);
+      .style('cursor', 'grab')
+      .call(d3.drag()
+        .on('start', (event, d) => {
+          if (!event.active) sim.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+          d3.select(event.currentTarget).style('cursor', 'grabbing');
+        })
+        .on('drag', (event, d) => {
+          d.fx = event.x;
+          d.fy = event.y;
+        })
+        .on('end', (event, d) => {
+          if (!event.active) sim.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+          d3.select(event.currentTarget).style('cursor', 'grab');
+        })
+      );
 
-    // Add node circles
+    // Add node circles with modern styling
     nodeElements.append('circle')
-      .attr('r', 20)
-      .attr('fill', d => {
-        if (traversalState.visited.has(d.id)) {
-          return 'url(#visitedGradient)';
-        } else if (traversalState.current === d.id) {
-          return 'url(#currentGradient)';
-        }
-        return 'url(#defaultGradient)';
-      })
-      .attr('stroke', d => {
-        if (traversalState.visited.has(d.id)) return '#389e0d';
-        if (traversalState.current === d.id) return '#096dd9';
-        return '#d9d9d9';
-      })
-      .attr('stroke-width', 3)
-      .style('filter', d => {
-        if (traversalState.visited.has(d.id) || traversalState.current === d.id) {
-          return 'url(#glow)';
-        }
-        return 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))';
-      });
+      .attr('r', 25)
+      .attr('fill', '#ffffff')
+      .attr('stroke', '#6b7280')
+      .attr('stroke-width', 2)
+      .style('filter', 'drop-shadow(0 2px 8px rgba(0,0,0,0.1))')
+      .style('transition', 'all 0.3s ease');
 
     // Add node labels
     nodeElements.append('text')
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
-      .attr('fill', 'white')
-      .attr('font-size', '14px')
+      .attr('fill', '#374151')
+      .attr('font-size', '16px')
       .attr('font-weight', '600')
-      .text(d => d.id);
+      .attr('font-family', 'system-ui, -apple-system, sans-serif')
+      .text(d => d.id)
+      .style('pointer-events', 'none')
+      .style('user-select', 'none');
 
-    // Define gradients
-    const gradients = defs.selectAll('linearGradient')
-      .data([
-        { id: 'visitedGradient', colors: ['#52c41a', '#389e0d'] },
-        { id: 'currentGradient', colors: ['#1890ff', '#096dd9'] },
-        { id: 'defaultGradient', colors: ['#ffffff', '#f0f0f0'] }
-      ])
-      .enter()
-      .append('linearGradient')
-      .attr('id', d => d.id)
-      .attr('x1', '0%').attr('y1', '0%')
-      .attr('x2', '100%').attr('y2', '100%');
+    // Update positions on simulation tick
+    sim.on('tick', () => {
+      edgeElements
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
 
-    gradients.selectAll('stop')
-      .data(d => d.colors.map((color, i) => ({ color, offset: i * 100 + '%' })))
-      .enter()
-      .append('stop')
-      .attr('offset', d => d.offset)
-      .attr('stop-color', d => d.color);
+      nodeElements
+        .attr('transform', d => `translate(${d.x}, ${d.y})`);
+    });
+
+    // Update styles based on traversal state
+    const updateStyles = () => {
+      // Update node styles
+      nodeElements.select('circle')
+        .attr('fill', d => {
+          if (traversalState.visited.has(d.id)) return '#10b981';
+          if (traversalState.current === d.id) return '#3b82f6';
+          return '#ffffff';
+        })
+        .attr('stroke', d => {
+          if (traversalState.visited.has(d.id)) return '#059669';
+          if (traversalState.current === d.id) return '#2563eb';
+          return '#6b7280';
+        })
+        .attr('stroke-width', d => {
+          if (traversalState.visited.has(d.id) || traversalState.current === d.id) return 3;
+          return 2;
+        })
+        .style('filter', d => {
+          if (traversalState.visited.has(d.id) || traversalState.current === d.id) {
+            return 'drop-shadow(0 4px 12px rgba(59,130,246,0.3))';
+          }
+          return 'drop-shadow(0 2px 8px rgba(0,0,0,0.1))';
+        });
+
+      // Update node text color
+      nodeElements.select('text')
+        .attr('fill', d => {
+          if (traversalState.visited.has(d.id) || traversalState.current === d.id) return '#ffffff';
+          return '#374151';
+        });
+
+      // Update edge styles
+      edgeElements
+        .attr('stroke', d => {
+          if (traversalState.currentEdge === d.id) return '#ef4444';
+          return '#d1d5db';
+        })
+        .attr('stroke-width', d => {
+          if (traversalState.currentEdge === d.id) return 4;
+          return 2;
+        })
+        .style('filter', d => {
+          if (traversalState.currentEdge === d.id) {
+            return 'drop-shadow(0 2px 4px rgba(239,68,68,0.3))';
+          }
+          return 'none';
+        });
+    };
+
+    updateStyles();
+
+    // Cleanup
+    return () => {
+      if (sim) sim.stop();
+    };
 
   }, [nodes, edges, traversalState]);
 
@@ -146,18 +186,19 @@ export const GraphVisualizer = () => {
         title="Graph Visualization" 
         style={{ 
           borderRadius: '12px',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e8e8e8'
         }}
       >
         <div style={{ 
-          height: 400, 
+          height: 450, 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderRadius: '12px',
-          color: 'white',
-          fontSize: '18px',
+          background: '#f9fafb',
+          borderRadius: '8px',
+          color: '#6b7280',
+          fontSize: '16px',
           fontWeight: '500'
         }}>
           Please input a graph to visualize
@@ -171,13 +212,16 @@ export const GraphVisualizer = () => {
       title="Graph Visualization" 
       style={{ 
         borderRadius: '12px',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e8e8e8'
       }}
     >
       <div style={{ 
         display: 'flex', 
         justifyContent: 'center',
-        padding: '10px'
+        padding: '10px',
+        background: '#f9fafb',
+        borderRadius: '8px'
       }}>
         <svg ref={svgRef}></svg>
       </div>
