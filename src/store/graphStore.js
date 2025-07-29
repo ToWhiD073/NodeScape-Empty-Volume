@@ -7,6 +7,7 @@ export const useGraphStore = create((set, get) => ({
   algorithm: 'DFS',
   traversalState: {
     visited: new Set(),
+    visitOrder: [], // Track order of node visits
     current: null,
     currentEdge: null,
     callStack: [], // For DFS recursion simulation
@@ -108,6 +109,7 @@ export const useGraphStore = create((set, get) => ({
       rootNode: null,
       traversalState: {
         visited: new Set(),
+        visitOrder: [],
         current: null,
         currentEdge: null,
         callStack: [],
@@ -127,6 +129,7 @@ export const useGraphStore = create((set, get) => ({
   resetTraversal: () => set({
     traversalState: {
       visited: new Set(),
+      visitOrder: [],
       current: null,
       currentEdge: null,
       callStack: [],

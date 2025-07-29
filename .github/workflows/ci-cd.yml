@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  test-frontend:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -22,13 +22,32 @@ jobs:
       run: npm ci
     
     - name: Run tests
-      run: npm test -- --coverage --watchAll=false --passWithNoTests --passWithNoTests
+      run: npm test -- --coverage --watchAll=false --passWithNoTests
     
     - name: Run linting
       run: npm run lint || true
 
-  build:
-    needs: test
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Test backend
+      run: |
+        python -c "import simple_classifier; print('Backend imports successful')"
+
+  build-frontend:
+    needs: test-frontend
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -51,8 +70,8 @@ jobs:
         name: build-files
         path: build/
 
-  docker:
-    needs: build
+  docker-frontend:
+    needs: build-frontend
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
@@ -67,21 +86,49 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     
-    - name: Build and push Docker image
+    - name: Build and push Frontend Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
+        file: ./Dockerfile
         push: true
         tags: |
-          ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize:latest
-          ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize:${{ github.sha }}
+          ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize-frontend:latest
+          ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize-frontend:${{ github.sha }}
+
+  docker-backend:
+    needs: test-backend
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    
+    - name: Build and push Backend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.backend
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize-backend:latest
+          ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize-backend:${{ github.sha }}
 
   deploy:
-    needs: docker
+    needs: [docker-frontend, docker-backend]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
     - name: Deploy to production
       run: |
         echo "Deployment step - configure based on your hosting platform"
-        echo "Docker image: ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize:${{ github.sha }}"
+        echo "Frontend image: ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize-frontend:${{ github.sha }}"
+        echo "Backend image: ${{ secrets.DOCKER_HUB_USERNAME }}/algo-visualize-backend:${{ github.sha }}"

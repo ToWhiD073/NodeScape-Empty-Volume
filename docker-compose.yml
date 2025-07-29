@@ -1,8 +1,30 @@
 version: '3.8'
 
 services:
-  algo-visualize:
+  frontend:
     build: .
     ports:
       - "3000:80"
-    container_name: algo-visualize-app
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_BACKEND_URL=http://backend:5000
+    depends_on:
+      - backend
+    container_name: algo-visualize-frontend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+    container_name: algo-visualize-backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

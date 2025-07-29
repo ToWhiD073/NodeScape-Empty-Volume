@@ -23,7 +23,7 @@ export const useTraversal = () => {
   }, [edges]);
 
   const stepDFS = useCallback(() => {
-    const { callStack, visited } = traversalState;
+    const { callStack, visited, visitOrder } = traversalState;
     const adjList = buildAdjacencyList();
     
     if (callStack.length === 0) {
@@ -37,7 +37,12 @@ export const useTraversal = () => {
     if (currentFrame.phase === 'start') {
       // Mark node as visited and highlight it
       const newVisited = new Set(visited);
-      newVisited.add(node);
+      const newVisitOrder = [...visitOrder];
+      
+      if (!newVisited.has(node)) {
+        newVisited.add(node);
+        newVisitOrder.push(node);
+      }
       
       // Get unvisited children
       const unvisitedChildren = (adjList[node] || []).filter(child => !newVisited.has(child));
@@ -51,6 +56,7 @@ export const useTraversal = () => {
 
       updateTraversalState({
         visited: newVisited,
+        visitOrder: newVisitOrder,
         current: node,
         currentEdge: null,
         callStack: newCallStack,
@@ -117,7 +123,7 @@ export const useTraversal = () => {
   }, [traversalState, buildAdjacencyList, updateTraversalState, edges]);
 
   const stepBFS = useCallback(() => {
-    const { queue, visited } = traversalState;
+    const { queue, visited, visitOrder } = traversalState;
     const adjList = buildAdjacencyList();
     
     if (queue.length === 0) {
@@ -127,7 +133,12 @@ export const useTraversal = () => {
 
     const { node: currentNode, parent } = queue.shift();
     const newVisited = new Set(visited);
-    newVisited.add(currentNode);
+    const newVisitOrder = [...visitOrder];
+    
+    if (!newVisited.has(currentNode)) {
+      newVisited.add(currentNode);
+      newVisitOrder.push(currentNode);
+    }
 
     // Find edge from parent to current node
     let currentEdge = null;
@@ -146,6 +157,7 @@ export const useTraversal = () => {
 
     updateTraversalState({
       visited: newVisited,
+      visitOrder: newVisitOrder,
       current: currentNode,
       currentEdge,
       queue: newQueue,

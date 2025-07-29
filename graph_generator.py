@@ -6,9 +6,21 @@ from flask_cors import CORS
 import io
 import base64
 import json
+import os
+from simple_classifier import load_classifier, classify_graph
 
 app = Flask(__name__)
 CORS(app)
+
+# Load ML model on startup
+MODEL_PATH = 'graph_classifier_model.pth'
+if os.path.exists(MODEL_PATH):
+    if load_classifier(MODEL_PATH):
+        print(f"Graph classifier loaded successfully from {MODEL_PATH}")
+    else:
+        print(f"Failed to load model from {MODEL_PATH}")
+else:
+    print(f"Model file not found at {MODEL_PATH}")
 
 def create_modern_graph(edges, visited_nodes=None, current_node=None, current_edge=None):
     """Create a modern, beautiful graph visualization"""
@@ -124,6 +136,25 @@ def generate_graph():
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/classify', methods=['POST'])
+def classify_graph_endpoint():
+    try:
+        data = request.json
+        edges = data.get('edges', [])
+        
+        result = classify_graph(edges)
+        
+        return jsonify({
+            'success': True,
+            'classification': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False, 
+            'error': str(e)
+        })
 
 @app.route('/health', methods=['GET'])
 def health_check():

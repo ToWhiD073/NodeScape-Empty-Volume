@@ -17,7 +17,7 @@ function App() {
       <Layout style={{ minHeight: '100vh' }}>
         <Header style={{ background: '#fff', padding: '0 24px' }}>
           <Title level={2} style={{ margin: '16px 0' }}>
-            Graph Traversal Visualizer
+            Graph Visualizer & ML Classifier
           </Title>
         </Header>
         <Content style={{ padding: '24px' }}>

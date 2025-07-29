@@ -21,26 +21,31 @@ export const GraphVisualizer = () => {
   } = useGraphStore();
 
   const initialNodes = useMemo(() => {
-    return storeNodes.map((node) => ({
-      id: node.id,
-      position: node.position,
-      data: { label: node.data.label },
-      style: {
-        background: getNodeColor(node.id, traversalState),
-        color: "#fff",
-        border: "2px solid #222",
-        borderRadius: "50%",
-        width: 50,
-        height: 50,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "14px",
-        fontWeight: "bold",
-        transition: "all 0.3s ease",
-      },
-      type: "default",
-    }));
+    return storeNodes.map((node) => {
+      const visitIndex = traversalState.visitOrder.indexOf(node.id);
+      const displayLabel = visitIndex >= 0 ? `${node.data.label}(${visitIndex + 1})` : node.data.label;
+      
+      return {
+        id: node.id,
+        position: node.position,
+        data: { label: displayLabel },
+        style: {
+          background: getNodeColor(node.id, traversalState),
+          color: "#fff",
+          border: "2px solid #222",
+          borderRadius: "50%",
+          width: 60,
+          height: 60,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "12px",
+          fontWeight: "bold",
+          transition: "all 0.3s ease",
+        },
+        type: "default",
+      };
+    });
   }, [storeNodes, traversalState]);
 
   const initialEdges = useMemo(() => {
