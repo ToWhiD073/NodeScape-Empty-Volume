@@ -1,12 +1,10 @@
-import torch
-import numpy as np
 import networkx as nx
+import json
 
 # Simple graph classifier that uses your PyTorch model directly
 class SimpleGraphClassifier:
-    def __init__(self, model_path):
+    def __init__(self, model_path=None):
         self.model_path = model_path
-        self.state_dict = torch.load(model_path, map_location='cpu')
         self.classes = ['Tree', 'Cycle', 'DAG']
     
     def simple_classify(self, edges):
