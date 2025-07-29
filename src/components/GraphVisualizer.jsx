@@ -10,6 +10,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { useGraphStore } from "../store/graphStore";
+import { TraversalPath } from "./TraversalPath";
 
 const nodeTypes = {};
 
@@ -139,12 +140,24 @@ export const GraphVisualizer = () => {
         >
           <Background color="#aaa" gap={16} />
           <Controls />
-          <MiniMap
-            nodeColor={(node) => getNodeColor(node.id, traversalState)}
-            nodeStrokeWidth={3}
-            zoomable
-            pannable
-          />
+          {traversalState.isComplete ? (
+            <div style={{
+              position: 'absolute',
+              bottom: 20,
+              right: 20,
+              zIndex: 1000,
+              maxWidth: 300
+            }}>
+              <TraversalPath />
+            </div>
+          ) : (
+            <MiniMap
+              nodeColor={(node) => getNodeColor(node.id, traversalState)}
+              nodeStrokeWidth={3}
+              zoomable
+              pannable
+            />
+          )}
         </ReactFlow>
       </div>
     </Card>
